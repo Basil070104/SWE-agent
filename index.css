@@ -1,0 +1,61 @@
+:root {
+  --primary-foreground: 220, 90%, 60%; /* Example HSL value */
+}
+
+*, :after, :before {
+  --primary-foreground: 220, 90%, 60%; /* Or define it here if needed */
+}
+
+.body
+{
+  background-color: rgb(40, 40, 43);
+  display: flex;
+  max-height: 100vh;
+  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
+  margin: 0;
+}
+
+.side-panel {
+  /* background-color: hsl(var(--primary-foreground)); */
+  background-color: black;
+  display: flex;
+  width: 20%;
+  height: 100%;
+  opacity: 45%;
+  border-top-right-radius: 20px;
+  border-bottom-right-radius: 20px;
+  box-shadow: 5px 0 10px rgba(0, 0, 0, 0.3); /* Right shadow */
+}
+
+.main
+{
+  width: 80%;
+  height: 100%;
+}
+
+.query-container
+{
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 20%;
+  display: flex;
+  /* justify-content: center;
+  align-items: center; */
+}
+
+.query
+{
+  background-color: black;
+  position: absolute;
+  left: 15%;
+  opacity: 45%;
+  width: 50%;
+  height: 50%;
+  border-radius: 20px;
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.3); /* Shadow below */
+  /* outline: none; */
+  color: white;
+}

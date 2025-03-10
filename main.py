@@ -1,5 +1,7 @@
 from dotenv import load_dotenv
 from openai import OpenAI
+import re
+import subprocess
 
 load_dotenv()
 
@@ -10,6 +12,8 @@ api_key = os.getenv("openai_key")
 agent = OpenAI(
   api_key=api_key
 )
+
+pattern = ""
 
 def send_request():
   message_log = [
@@ -27,8 +31,29 @@ def send_request():
   print("ChatGPT: " + str(gpt_out))
   
 def understand_file():
-  pass
+  extracted = ""
+  with open("generated_files/test.py", "r") as file:
+    content = file.read()
+    match = re.search(r"```python\n(.*?)\n```", content, re.DOTALL)
+    if match:
+      extracted = match.group(1)
+      print(extracted)
+    
+  message_log = [
+    {"role": "system", "content": "You are an efficient Python debugger that tries to figure out what is wrong with the code. Please don't explain the fixes to the code."},
+    {"role": "user", "content": content},
+  ]
   
-send_request()
+  completion = agent.chat.completions.create(
+    model='gpt-4o-mini',
+    messages=message_log
+  )
+  
+  gpt_out = completion.choices[0].message.content
+  
+  print("ChatGPT: " + str(gpt_out))
+  
+# send_request()
+understand_file()
   
 
