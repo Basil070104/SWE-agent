@@ -96,47 +96,124 @@ class Agent:
     return False
       
     # await deployment.stop()
-  
+    
   async def edit(self, runtime, file, n, m, replacement_text):
+    """
+    Edit a file by replacing lines n through m with replacement_text
     
-    # Use Vim commands to edit the file
-    
-    output = await self.find_file(runtime, file, "generated_files")
-    
+    Args:
+        runtime: The runtime environment
+        file: The file to edit
+        n: Starting line number
+        m: Ending line number
+        replacement_text: Text to insert
+    """
+    # First check if we're in the right directory
     current = await runtime.run_in_session(BashAction(
-      command="pwd"
+        command="pwd"
     ))
+    print(f"Current directory: {current.output.strip()}")
     
-    print(current.output)
+    # Create a temporary file with the vim commands
+    escaped_text = replacement_text.replace("'", "'\\''")
     
-    vim_commands = [
-        f"{n},{m}d",  # Delete lines n through m
-        "i",          # Enter insert mode
-        replacement_text,  # Add the replacement text
-        "\x1b",       # Exit insert mode (ESC key)
-        ":wq"         # Save and quit
-    ]
+    # Format the vim script correctly:
+    # 1. Move to line n
+    # 2. Delete m-n+1 lines
+    # 3. Enter insert mode
+    # 4. Add replacement text
+    # 5. Exit insert mode and save
+    vim_script = f"""
+      :{n}
+      :{n},{m}d
+      i
+      {escaped_text}
+      ^[
+      :wq
+    """ 
     
-    vim_script = "/tmp/vim_commands.txt"
+    # The ^[ is a literal ESC character which needs to be handled specially
+    vim_script = vim_script.replace("^[", "\x1B")
     
-    cmd_content = "\n".join(vim_commands)
+    # Write the vim script to a temporary file
+    script_path = "/tmp/vim_commands.txt"
     await runtime.run_in_session(BashAction(
-        command=f"echo '{cmd_content}' > {vim_script}"
+        command=f"cat > {script_path} << \n{vim_script}\nEOT"
     ))
     
-    print("here")
+    print(f"Created vim script at {script_path}")
     
+    # Execute vim with the script
+    print(f"Editing file: {file}")
     result = await runtime.run_in_session(BashAction(
-        command=f"vim -s {vim_script} {file}"
+        command=f"vim -s {script_path} {file}"
     ))
     
-    print("here")
+    # Check if vim executed successfully
+    if result.exit_code == 0:
+        print("File edited successfully")
+    else:
+        print(f"Error editing file: {result.output}")
     
+    # Clean up the temporary script
     await runtime.run_in_session(BashAction(
-        command=f"rm {vim_script}"
+        command=f"rm {script_path}"
     ))
     
-    return True
+    return result.exit_code == 0
+  
+  # async def edit(self, runtime, file, n, m, replacement_text):
+    
+  #   # Use Vim commands to edit the file
+  #   output = await self.find_file(runtime, file, "generated_files")
+    
+  #   current = await runtime.run_in_session(BashAction(
+  #     command="pwd"
+  #   ))
+    
+  #   print(current.output)
+    
+  #   vim_commands = f"""
+  #   {n},{m}d
+  #   i
+  #   {replacement_text}
+  #   :wq
+  #   """
+    
+  #   vim_script = "vim_commands.txt"
+    
+  #   await runtime.run_in_session(BashAction(
+  #       command=f"printf '{vim_commands}' > {vim_script}"
+  #   ))
+    
+  #   print(vim_commands)
+    
+  #   # vim_commands = [
+  #   #     f"{n},{m}d",  # Delete lines n through m
+  #   #     "i",          # Enter insert mode
+  #   #     replacement_text,  # Add the replacement text
+  #   #     "\x1b",       # Exit insert mode (ESC key)
+  #   #     ":wq"         # Save and quit
+  #   # ]
+  
+  #   print("Executing Vim Commands...")
+    
+  #   if os.path.exists(vim_script):
+  #     print(f"{vim_script} exists.")
+  #   else:
+  #     print(f"{vim_script} does not exist.")
+    
+  #   result = await runtime.run_in_session(BashAction(
+  #       command=f"vim -s {vim_script} {file}"
+  #   ))
+    
+  #   print("Vim execution completed.")
+    
+  #   await runtime.run_in_session(BashAction(
+  #       command=f"rm {vim_script}"
+  #   ))
+    
+  #   return True
     
   async def create(self, runtime, file_name):
 
@@ -166,3 +243,5 @@ runtime = deployment.runtime
 asyncio.run(runtime.create_session(CreateBashSessionRequest()))
 asyncio.run(agent.edit(runtime=runtime, file="test.py", n=2, m=3, replacement_text="vowels = \"aeiouAEIOU\""))
 asyncio.run(deployment.stop())
+
+
