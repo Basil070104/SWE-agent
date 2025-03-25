@@ -1,6 +1,6 @@
-
-    2,3d
-    i
-    vowels = "aeiouAEIOU"
-    :wq
+:2,2d
+i
+vowels = "aeiouAEIOU"
+
+:wq
     

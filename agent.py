@@ -4,8 +4,7 @@ import os
 import asyncio
 from swerex.deployment.local import LocalDeployment
 from swerex.runtime.abstract import CreateBashSessionRequest, BashAction, Command
-
-
+import json
 
 class Agent:
   
@@ -17,38 +16,22 @@ class Agent:
       api_key=api_key
     )
     
-  async def open(self, runtime, path: str, line_number=None):
-    
-    path_list = path.split("/")
-    directory = "/".join(path_list[:-1])
-    filename = path_list[-1]
-    # print(path_list)
-    
-    current = await runtime.run_in_session(BashAction(
-      command="pwd"
-    ))
-    # print(current.output)
-    
-    if directory:
-      cd_command = f"cd {directory}"
-      cd_response = await runtime.run_in_session(BashAction(
-        command=cd_command
-      ))
-      print(f"Changed directory: {cd_response.output}")
+  async def open(self, runtime, filename, line_number=None):
       
+    print("Opening file...")
+    
     cat_command = f"cat {filename}"
     result = await runtime.run_in_session(BashAction(
       command=cat_command
     ))
       
-    # print(result.output)
     
     if line_number is not None:
       await self.goto(deployment, line_number)
       
     return result
   
-  async def goto(self, deployment, line_number):
+  async def goto(self, runtime, line_number):
     pass
   
   def scroll_down(self):
@@ -60,11 +43,13 @@ class Agent:
   def search_file(self):
     pass
   
-  def search_dir(self):
+  def search_dir(self, runtime, dir_name):
     pass
   
   async def find_file(self, runtime, file_name, dir):
 
+    print("Finding File...")
+    
     current = await runtime.run_in_session(BashAction(
       command="pwd"
     ))
@@ -97,123 +82,39 @@ class Agent:
       
     # await deployment.stop()
     
+  
   async def edit(self, runtime, file, n, m, replacement_text):
-    """
-    Edit a file by replacing lines n through m with replacement_text
     
-    Args:
-        runtime: The runtime environment
-        file: The file to edit
-        n: Starting line number
-        m: Ending line number
-        replacement_text: Text to insert
-    """
-    # First check if we're in the right directory
+    # Use Vim commands to edit the file
+    # output = await self.find_file(runtime, file, "generated_files")
+    
     current = await runtime.run_in_session(BashAction(
-        command="pwd"
+      command="pwd"
     ))
-    print(f"Current directory: {current.output.strip()}")
     
-    # Create a temporary file with the vim commands
-    escaped_text = replacement_text.replace("'", "'\\''")
+    print(current.output)
     
-    # Format the vim script correctly:
-    # 1. Move to line n
-    # 2. Delete m-n+1 lines
-    # 3. Enter insert mode
-    # 4. Add replacement text
-    # 5. Exit insert mode and save
-    vim_script = f"""
-      :{n}
-      :{n},{m}d
-      i
-      {escaped_text}
-      ^[
-      :wq
-    """ 
+    vim_commands = f""":{n},{m}d\ni\n{replacement_text}\n\\x1b\n:wq
+    """
     
-    # The ^[ is a literal ESC character which needs to be handled specially
-    vim_script = vim_script.replace("^[", "\x1B")
+    vim_script = "vim_commands.txt"
     
-    # Write the vim script to a temporary file
-    script_path = "/tmp/vim_commands.txt"
     await runtime.run_in_session(BashAction(
-        command=f"cat > {script_path} << \n{vim_script}\nEOT"
+        command=f"printf '{vim_commands}' > {vim_script}"
     ))
     
-    print(f"Created vim script at {script_path}")
+    # print(vim_commands)
+  
+    print("Executing Vim Commands...")
     
-    # Execute vim with the script
-    print(f"Editing file: {file}")
     result = await runtime.run_in_session(BashAction(
-        command=f"vim -s {script_path} {file}"
+        command=f"vim -s {vim_script} {file}"
     ))
     
-    # Check if vim executed successfully
-    if result.exit_code == 0:
-        print("File edited successfully")
-    else:
-        print(f"Error editing file: {result.output}")
-    
-    # Clean up the temporary script
-    await runtime.run_in_session(BashAction(
-        command=f"rm {script_path}"
-    ))
-    
-    return result.exit_code == 0
+    print("Vim execution completed.")
   
-  # async def edit(self, runtime, file, n, m, replacement_text):
     
-  #   # Use Vim commands to edit the file
-  #   output = await self.find_file(runtime, file, "generated_files")
-    
-  #   current = await runtime.run_in_session(BashAction(
-  #     command="pwd"
-  #   ))
-    
-  #   print(current.output)
-    
-  #   vim_commands = f"""
-  #   {n},{m}d
-  #   i
-  #   {replacement_text}
-  #   :wq
-  #   """
-    
-  #   vim_script = "vim_commands.txt"
-    
-  #   await runtime.run_in_session(BashAction(
-  #       command=f"printf '{vim_commands}' > {vim_script}"
-  #   ))
-    
-  #   print(vim_commands)
-    
-  #   # vim_commands = [
-  #   #     f"{n},{m}d",  # Delete lines n through m
-  #   #     "i",          # Enter insert mode
-  #   #     replacement_text,  # Add the replacement text
-  #   #     "\x1b",       # Exit insert mode (ESC key)
-  #   #     ":wq"         # Save and quit
-  #   # ]
-  
-  #   print("Executing Vim Commands...")
-    
-  #   if os.path.exists(vim_script):
-  #     print(f"{vim_script} exists.")
-  #   else:
-  #     print(f"{vim_script} does not exist.")
-    
-  #   result = await runtime.run_in_session(BashAction(
-  #       command=f"vim -s {vim_script} {file}"
-  #   ))
-    
-  #   print("Vim execution completed.")
-    
-  #   await runtime.run_in_session(BashAction(
-  #       command=f"rm {vim_script}"
-  #   ))
-    
-  #   return True
+    return True
     
   async def create(self, runtime, file_name):
 
@@ -228,9 +129,74 @@ class Agent:
     
     
   def submit(self):
+    """ 
+      submit request to Github or run code
+    """
+    
+    
     pass
   
-  def think(self):
+  async def think(self, runtime, file):
+    
+    output = await self.find_file(runtime, file, "generated_files")
+    result = ""
+    
+    if output:
+      result = await self.open(runtime, file)
+    else:
+      raise Exception("File was not found") 
+    
+    print(result.output)
+    
+    message_log = [
+    {
+        "role": "system",
+        "content": """You are an efficient Python debugger that identifies issues in the provided code and suggests precise fixes. 
+
+        **Instructions for output format:**  
+        - Do not explain the fixes.  
+        - Return the information in the following format:  
+          
+          {  
+            "updates": [  
+              { "n": X, "m": Y, "replacement": "corrected_code" },  
+              { "n": A, "m": B, "replacement": "corrected_code" }  
+            ]  
+          }
+          
+        - `n` and `m` are the line numbers to be replaced.  
+        - `replacement` contains the corrected code for those lines.  
+        - Ensure the output structure remains consistent across responses.  
+        """
+    },
+    {"role": "user", "content": result.output},
+]
+
+    completion = self.agent.chat.completions.create(
+        model="gpt-4o-mini",
+        messages = message_log
+    )
+    
+    gpt_out = completion.choices[0].message.content
+    
+    print("ChatGPT: " + gpt_out)
+    
+    try:
+      data = json.loads(str(gpt_out))
+      updates = data.get("updates", [])
+      for update in updates:
+        n = update.get("n")
+        m = update.get("m")
+        replacement = update.get("replacement")
+        print(f"Replace lines {n}-{m} with:\n{replacement}\n")
+    except json.JSONDecodeError as e:
+      print("Error parsing JSON:", e)
+      
+    print(replacement)
+    
+    await self.edit(runtime, file, n, m, replacement)
+  
+  async def listen(self):
     pass
   
 deployment = LocalDeployment()
@@ -241,7 +207,8 @@ agent = Agent(alpha=0.5)
 asyncio.run(deployment.start())
 runtime = deployment.runtime
 asyncio.run(runtime.create_session(CreateBashSessionRequest()))
-asyncio.run(agent.edit(runtime=runtime, file="test.py", n=2, m=3, replacement_text="vowels = \"aeiouAEIOU\""))
+# asyncio.run(agent.edit(runtime=runtime, file="test.py", n=2, m=2, replacement_text="vowels = \"aeiouAEIOU\""))
+asyncio.run(agent.think(runtime=runtime, file="test.py" ))
 asyncio.run(deployment.stop())
 
 
