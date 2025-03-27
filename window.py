@@ -50,6 +50,7 @@ class Window:
     exception: bool = True
   ):
     self.path = Path(path)
+    self._exit_on_exception = exception
     if not self.path.exists():
       msg = f"Error: File {self.path} not found"
       if exception:
@@ -63,44 +64,45 @@ class Window:
           exit(1)
       raise IsADirectoryError(msg)
     
-    self.first_line = 0
+    self._first_line = 0
     self._original_text= self.path.read_text()
     self._original_first_line = self.first_line
     self.window = 35
     self.text = self.path.read_text()
+    self.offset_multiplier = 1 / 6
 
-    @property
-    def first_line(self) -> int:
-        return self._first_line
+  @property
+  def first_line(self) -> int:
+      return self._first_line
 
-    @first_line.setter
-    def first_line(self, value: Union[int, float]):
-        self._original_first_line = self.first_line
-        value = int(value)
-        self._first_line = max(0, min(value, self.n_lines - 1 - self.window))
+  @first_line.setter
+  def first_line(self, value: Union[int, float]):
+      self._original_first_line = self.first_line
+      value = int(value)
+      self._first_line = max(0, min(value, self.n_lines - 1 - self.window))
 
-    @property
-    def text(self) -> str:
-        return self.path.read_text()
+  @property
+  def text(self) -> str:
+      return self.path.read_text()
 
-    @text.setter
-    def text(self, new_text: str):
-        self._original_text = self.text
-        self.path.write_text(new_text)
+  @text.setter
+  def text(self, new_text: str):
+      self._original_text = self.text
+      self.path.write_text(new_text)
 
-    @property
-    def n_lines(self) -> int:
-        return len(self.text.splitlines())
+  @property
+  def n_lines(self) -> int:
+      return len(self.text.splitlines())
 
-    @property
-    def line_range(self) -> Tuple[int, int]:
-        """Return first and last line (inclusive) of the display window, such
-        that exactly `window` many lines are displayed.
-        This means `line_range[1] - line_range[0] == window-1` as long as there are
-        at least `window` lines in the file. `first_line` does the handling
-        of making sure that we don't go out of bounds.
-        """
-        return self.first_line, min(self.first_line + self.window - 1, self.n_lines - 1)
+  @property
+  def line_range(self) -> Tuple[int, int]:
+      """Return first and last line (inclusive) of the display window, such
+      that exactly `window` many lines are displayed.
+      This means `line_range[1] - line_range[0] == window-1` as long as there are
+      at least `window` lines in the file. `first_line` does the handling
+      of making sure that we don't go out of bounds.
+      """
+      return self.first_line, min(self.first_line + self.window - 1, self.n_lines - 1)
       
   def get_window_text(
       self, *, line_numbers: bool = False, status_line: bool = False, pre_post_line: bool = False
@@ -112,11 +114,11 @@ class Window:
           status_line: include the status line in the output (file path, total lines)
           pre_post_line: include the pre/post line in the output (number of lines above/below)
       """
-      start_line, end_line = [53,78]
+      start_line, end_line = self.line_range
       lines = self.text.split("\n")[start_line : end_line + 1]
       out_lines = []
       if status_line:
-          # out_lines.append(f"[File: {self.path} ({self.n_lines} lines total)]")
+          out_lines.append(f"[File: {self.path} ({self.n_lines} lines total)]")
           pass
       if pre_post_line:
           if start_line > 0:
@@ -127,10 +129,57 @@ class Window:
           out_lines.extend(lines)
       if pre_post_line:
           if end_line < self.n_lines - 1:
-              # out_lines.append(f"({self.n_lines - end_line - 1} more lines below)")
+              out_lines.append(f"({self.n_lines - end_line - 1} more lines below)")
               pass
       return "\n".join(out_lines)
+    
+  def print_window(self, *, line_numbers: bool = True, status_line: bool = True, pre_post_line: bool = True):
+    print(self.get_window_text(line_numbers=line_numbers, status_line=status_line, pre_post_line=pre_post_line))
+    
+  def set_window_text(self, new_text: str, *, line_range: Optional[Tuple[int, int]] = None) -> None:
+    """Replace the text in the current display window with a new string."""
+    text = self.text.split("\n")
+    if line_range is not None:
+        start, stop = line_range
+    else:
+        start, stop = self.line_range
 
+    # Handle empty replacement text (deletion case)
+    new_lines = new_text.split("\n") if new_text else []
+    text[start : stop + 1] = new_lines
+    self.text = "\n".join(text)
+    
+    
+  def replace_in_window(self, search: str, replace: str, *, reset_first_line : str = "top"):
+    window_text = self.get_window_text()
+    
+    index = window_text.find(search)
+    
+    if index == -1:
+      if self._exit_on_exception:
+        print(f"Error string could not be found: {search}")
+        exit(1)
+      raise TextNotFound
+    window_start, _ = self.line_range
+    replace_start_line = window_start + len(window_text[:index].split("\n")) - 1
+    new_window_text = window_text.replace(search, replace)
+    self.set_window_text(new_window_text)
+    if reset_first_line == "keep":
+      pass
+    else:
+      self.goto(replace_start_line, mode=reset_first_line)
+    return ReplacementInfo(
+      first_replaced_line=replace_start_line,
+      n_search_lines=len(search.split("\n")),
+      n_replace_lines=len(replace.split("\n")),
+      n_replacements=1,
+    )
+    
+  def goto(self, line: int, mode: str = "top"):
+    if mode == "top":
+        self.first_line = line - self.window * self.offset_multiplier
+    else:
+        raise NotImplementedError
     
 if __name__ == "__main__":
   # positions = find_all("rebngvuierbnflaidenfalskjdfnasdufinasduifnas", "s")
@@ -141,6 +190,8 @@ if __name__ == "__main__":
   # test = InsertInfo(5,5)
   # print(test)
   
-  window = Window("aMUSED.py", first_line=50)
-  lines = window.get_window_text(line_numbers=True, status_line=True, pre_post_line=False)
-  print(lines)
+  window = Window("test.py", first_line=50)
+  
+  lines = window.print_window()
+  info = window.replace_in_window(search="vowels = \"aIOU\"", replace="vowels = \"aeiouAEIOU\"", reset_first_line="keep")
+  print(info)

@@ -10,6 +10,7 @@ import logging
 from type import Agent
 import logging.config
 from pathlib import Path
+from window import Window
 
 class Agent:
   
@@ -56,16 +57,23 @@ class Agent:
   def search_dir(self, runtime, dir_name):
     pass
   
-  async def find_file(self, runtime, file_name, dir):
+  async def find_file(self, runtime, file_name):
 
     self.logger.debug("Finding File...")
     
-    current = await runtime.run_in_session(BashAction(
-      command="pwd"
+    find = await runtime.run_in_session(BashAction(
+      command=f"find . -name {file_name}"
     ))
     
+    find_arr = find.output.split("/")
+    print(find_arr)
+    
     dir_list = ""
-    if dir:
+    if len(find_arr) == 2:
+      file = find_arr[1]
+      self.logger.debug("Found")
+      return True
+    else:
       cd_command = f"cd {dir}"
       cd_response = await runtime.run_in_session(BashAction(
         command=cd_command
@@ -99,26 +107,26 @@ class Agent:
       command="pwd"
     ))
     
-    print(current.output)
+    # print(current.output)
     
-    vim_commands = f""":{n},{m}d\ni\n{replacement_text}\n\\x1b\n:wq
-    """
+    # vim_commands = f""":{n},{m}d\ni\n{replacement_text}\n\\x1b\n:wq
+    # """
     
-    vim_script = "vim_commands.txt"
+    # vim_script = "vim_commands.txt"
     
-    await runtime.run_in_session(BashAction(
-        command=f"printf '{vim_commands}' > {vim_script}"
-    ))
+    # await runtime.run_in_session(BashAction(
+    #     command=f"printf '{vim_commands}' > {vim_script}"
+    # ))
     
-    # print(vim_commands)
+    # # print(vim_commands)
   
-    self.logger.info("Executing Vim Commands...")
+    # self.logger.info("Executing Vim Commands...")
     
-    result = await runtime.run_in_session(BashAction(
-        command=f"vim -s {vim_script} {file}"
-    ))
+    # result = await runtime.run_in_session(BashAction(
+    #     command=f"vim -s {vim_script} {file}"
+    # ))
     
-    self.logger.info("Vim execution completed.")
+    # self.logger.info("Vim execution completed.")
   
     
     return True
@@ -150,40 +158,43 @@ class Agent:
   
   async def think(self, runtime, file):
     
-    output = await self.find_file(runtime, file, "generated_files")
+    output = await self.find_file(runtime, file)
     result = ""
     
-    if output:
-      result = await self.open(runtime, file)
-    else:
-      self.logger.error("File was not found") 
+    window = Window(path=file, first_line=1) if output else None
+    if window:
+      self.logger.error("File did not open") 
     
-    print(result.output)
+    window.print_window()
+    text = window.get_window_text(line_numbers=True)
+    # print(result.output)
+    
+    self.logger.info("Thinking...")
     
     message_log = [
-    {
-        "role": "system",
-        "content": """You are an efficient Python debugger that identifies issues in the provided code and suggests precise fixes. 
+      {
+          "role": "system",
+          "content": """You are an efficient Python debugger that identifies issues in the provided code and suggests precise fixes. 
 
-        **Instructions for output format:**  
-        - Do not explain the fixes.  
-        - The First line is line number 1
-        - Return the information in the following format:  
-          
-          {  
-            "updates": [  
-              { "n": X, "m": Y, "replacement": "corrected_code" },  
-              { "n": A, "m": B, "replacement": "corrected_code" }  
-            ]  
-          }
-          
-        - `n` and `m` are the line numbers to be replaced.  
-        - `replacement` contains the corrected code for those lines.  
-        - Ensure the output structure remains consistent across responses.  
-        """
-    },
-    {"role": "user", "content": result.output},
-]
+          **Instructions for output format:**  
+          - Do not explain the fixes.  
+          - The First line is line number 1
+          - Return the information in the following format:  
+            
+            {  
+              "updates": [  
+                { "search": X, "replacement": "corrected_code" },  
+                { "search": Y, "replacement": "corrected_code" }  
+              ]  
+            }
+            
+          - 'search' is the code that needs to be replaced -> can be multilined
+          - `replacement` contains the corrected code for those lines.  
+          - Ensure the output structure remains consistent across responses.  
+          """
+      },
+      {"role": "user", "content": text}
+    ]
 
     completion = self.agent.chat.completions.create(
         model="gpt-4o-mini",
@@ -198,16 +209,19 @@ class Agent:
       data = json.loads(str(gpt_out))
       updates = data.get("updates", [])
       for update in updates:
-        n = update.get("n")
-        m = update.get("m")
+        search = update.get("search")
         replacement = update.get("replacement")
-        print(f"Replace lines {n}-{m} with:\n{replacement}\n")
+        print(f"Replace lines {search} with:\n{replacement}\n")
     except json.JSONDecodeError as e:
       self.logger.error("Error parsing JSON:", e)
       
     print(type(replacement))
     
-    await self.edit(runtime, file, n, m, replacement)
+    self.logger.info("Editing...")
+    
+    window.replace_in_window(search=search, replace=replacement, reset_first_line="keep")
+    
+    # await self.edit(runtime, file, n, m, replacement)
     
     return 
   
@@ -224,7 +238,7 @@ def main(file):
   runtime = deployment.runtime
   asyncio.run(runtime.create_session(CreateBashSessionRequest()))
   # asyncio.run(agent.edit(runtime=runtime, file="test.py", n=2, m=2, replacement_text="vowels = \"aeiouAEIOU\""))
-  asyncio.run(agent.think(runtime=runtime, file=file ))
+  asyncio.run(agent.think(runtime=runtime, file=file))
   asyncio.run(deployment.stop())
 
 if __name__ == "__main__":

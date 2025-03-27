@@ -1,30 +1,46 @@
 import pygame
+from window import Window
 
-pygame.init()
+if __name__ == "__main__":
 
-WIDTH, HEIGHT = 500, 500
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.init()
 
-pygame.display.set_caption("Z.")
+    WIDTH, HEIGHT = 500, 500
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
+    pygame.display.set_caption("Z.")
 
-circle_center = (WIDTH // 2, HEIGHT // 2)  # Center of screen
-circle_radius = 100
-border = 2
-
-running = True
-while running:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-
-    screen.fill((255, 255, 255))
+    WHITE = (255, 255, 255)
+    BLACK = (0, 0, 0)
     
-    pygame.draw.circle(screen, BLACK, circle_center, circle_radius, border)
+    X = 400
+    Y = 400
 
-    pygame.display.flip()
+    circle_center = (WIDTH // 2, HEIGHT // 2)  # Center of screen
+    circle_radius = 100
+    border = 2
+    
+    window = Window("aMUSED.py", first_line=50)
+    lines = window.get_window_text(line_numbers=True, status_line=True, pre_post_line=False)
+    print(lines)
+    
+    font = pygame.font.Font('freesansbold.ttf', 12)
+    text = font.render(lines, True, BLACK, WHITE)
+    
+    textRect = text.get_rect()
+    # set the center of the rectangular object.
+    textRect.center = (WIDTH// 2, HEIGHT // 2)
 
-# Quit Pygame
-pygame.quit()
+    running = True
+    while running:
+        screen.fill(WHITE)
+        
+        screen.blit(text, textRect)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+            pygame.display.update()
+
+    # Quit Pygame
+    pygame.quit()

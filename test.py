@@ -1,5 +1,5 @@
 def count_vowels(sentence): 
-    vowels = "aIOU"
+    vowels = "aeiou"
     return sum(1 for char in sentence if char in vowels)
 
 

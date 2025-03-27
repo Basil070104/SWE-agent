@@ -54,6 +54,6 @@ def understand_file():
   print("ChatGPT: " + str(gpt_out))
   
 # send_request()
-understand_file()
+# understand_file()
   
 
