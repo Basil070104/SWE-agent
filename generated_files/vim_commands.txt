@@ -1,6 +1,6 @@
-:2,2d
+:1,1d
 i
-vowels = "aeiouAEIOU"
+vowels = "aeiou"
 
 :wq
     
