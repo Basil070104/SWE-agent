@@ -66,7 +66,7 @@ class Agent:
     ))
     
     find_arr = find.output.split("/")
-    print(find_arr)
+    # print(find_arr)
     
     dir_list = ""
     if len(find_arr) == 2:
@@ -162,10 +162,12 @@ class Agent:
     result = ""
     
     window = Window(path=file, first_line=1) if output else None
-    if window:
+    if window is None:
       self.logger.error("File did not open") 
+    else:
+      self.logger.info("File opened successfully")
     
-    window.print_window()
+    # window.print_window()
     text = window.get_window_text(line_numbers=True)
     # print(result.output)
     
@@ -203,19 +205,24 @@ class Agent:
     
     gpt_out = completion.choices[0].message.content
     
-    print("ChatGPT: " + gpt_out)
+    # print("ChatGPT: " + gpt_out)
     
     try:
       data = json.loads(str(gpt_out))
       updates = data.get("updates", [])
+      
+      if not updates:
+        self.logger.info("No updates Found.")
+        return
+      
       for update in updates:
         search = update.get("search")
         replacement = update.get("replacement")
-        print(f"Replace lines {search} with:\n{replacement}\n")
+        self.logger.info(f"Replace lines {search} with: {replacement}")
     except json.JSONDecodeError as e:
       self.logger.error("Error parsing JSON:", e)
       
-    print(type(replacement))
+    # print(type(replacement))
     
     self.logger.info("Editing...")
     
