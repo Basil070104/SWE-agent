@@ -1,3 +1,9 @@
+"""RL Agent to train in a coding env
+
+Returns:
+    None: 
+"""
+
 from dotenv import load_dotenv
 from openai import OpenAI
 import os
@@ -42,17 +48,20 @@ class Agent:
       
     return result
   
-  async def goto(self, runtime, line_number):
-    pass
+  async def goto(self, window: Window, line_number):
+    window.goto(line=line_number)
+    self.logger.info(f"Went to line {line_number}")
+    return
   
-  def scroll_down(self):
-    pass
+  def scroll_down(self, window: Window, lines: int):
+    window.scroll(n_lines=lines)
+    self.logger.info(f"Scrolled down {lines}")
+    return
   
-  def scroll_up(self):
-    pass
-    
-  def search_file(self):
-    pass
+  def scroll_up(self, window: Window, lines: int):
+    window.scroll(n_lines=-lines)
+    self.logger.info(f"Scrolled up {lines}")
+    return
   
   def search_dir(self, runtime, dir_name):
     pass
@@ -66,7 +75,6 @@ class Agent:
     ))
     
     find_arr = find.output.split("/")
-    # print(find_arr)
     
     dir_list = ""
     if len(find_arr) == 2:
@@ -102,32 +110,9 @@ class Agent:
   
   async def edit(self, runtime, file, n, m, replacement_text):
     
-    # Use Vim commands to edit the file
     current = await runtime.run_in_session(BashAction(
       command="pwd"
     ))
-    
-    # print(current.output)
-    
-    # vim_commands = f""":{n},{m}d\ni\n{replacement_text}\n\\x1b\n:wq
-    # """
-    
-    # vim_script = "vim_commands.txt"
-    
-    # await runtime.run_in_session(BashAction(
-    #     command=f"printf '{vim_commands}' > {vim_script}"
-    # ))
-    
-    # # print(vim_commands)
-  
-    # self.logger.info("Executing Vim Commands...")
-    
-    # result = await runtime.run_in_session(BashAction(
-    #     command=f"vim -s {vim_script} {file}"
-    # ))
-    
-    # self.logger.info("Vim execution completed.")
-  
     
     return True
     
@@ -148,13 +133,8 @@ class Agent:
       submit request to Github or run code
     """
     
-    
     pass
-  
-  def attempt_change(self, text, n, m, replacement):
-    
-    
-    return
+
   
   async def think(self, runtime, file):
     

@@ -16,7 +16,7 @@ SWE Agent is a software engineering assistant designed to streamline development
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/swe-agent.git
+   git clone https://github.com/Basil070104/SWE-Agent.git
    ```
 2. Navigate to the project directory:
    ```bash

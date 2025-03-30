@@ -180,6 +180,12 @@ class Window:
         self.first_line = line - self.window * self.offset_multiplier
     else:
         raise NotImplementedError
+      
+  def scroll(self, n_lines: int):
+      if n_lines > 0:
+          self.first_line += n_lines - self.overlap
+      elif n_lines < 0:
+          self.first_line += n_lines + self.overlap
     
 if __name__ == "__main__":
   # positions = find_all("rebngvuierbnflaidenfalskjdfnasdufinasduifnas", "s")
