@@ -196,8 +196,8 @@ if __name__ == "__main__":
   # test = InsertInfo(5,5)
   # print(test)
   
-  window = Window("test.py", first_line=50)
+  window = Window("aMUSED.py", first_line=50)
   
   lines = window.print_window()
-  info = window.replace_in_window(search="vowels = \"aIOU\"", replace="vowels = \"aeiouAEIOU\"", reset_first_line="keep")
-  print(info)
+  # info = window.replace_in_window(search="vowels = \"aIOU\"", replace="vowels = \"aeiouAEIOU\"", reset_first_line="keep")
+  # print(info)
