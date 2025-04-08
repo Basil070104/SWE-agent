@@ -48,6 +48,8 @@ class Agent:
       
     return result
   
+  #actions the agent can do
+  
   async def goto(self, window: Window, line_number):
     window.goto(line=line_number)
     self.logger.info(f"Went to line {line_number}")
@@ -62,9 +64,6 @@ class Agent:
     window.scroll(n_lines=-lines)
     self.logger.info(f"Scrolled up {lines}")
     return
-  
-  def search_dir(self, runtime, dir_name):
-    pass
   
   async def find_file(self, runtime, file_name):
 
@@ -192,7 +191,7 @@ class Agent:
       updates = data.get("updates", [])
       
       if not updates:
-        self.logger.info("No updates Found.")
+        self.logger.info("Your command ran successfully and did not produce any output.")
         return
       
       for update in updates:
@@ -209,11 +208,6 @@ class Agent:
     window.replace_in_window(search=search, replace=replacement, reset_first_line="keep")
     
     # await self.edit(runtime, file, n, m, replacement)
-    
-    return 
-  
-  async def listen(self):
-    pass
   
 def main(file):
   deployment = LocalDeployment()

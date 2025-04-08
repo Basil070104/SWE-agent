@@ -67,7 +67,7 @@ class Window:
     self._first_line = 0
     self._original_text= self.path.read_text()
     self._original_first_line = self.first_line
-    self.window = 35
+    self.window = 100 # the paper defined 100 lines to be the sweet spot of number of lines to show each window
     self.text = self.path.read_text()
     self.offset_multiplier = 1 / 6
 
