@@ -5,6 +5,8 @@ from swerex.deployment.local import LocalDeployment
 from swerex.runtime.abstract import CreateBashSessionRequest, BashAction, Command
 import requests
 import tempfile
+import subprocess
+import json
 
 class Dataset:
   
@@ -26,6 +28,7 @@ class Dataset:
     Returns:
         dict: Repository information and path to the cloned repository
     """
+    # Create a temporary directory for cloning
     temp_dir = tempfile.mkdtemp(dir=os.getcwd())
     
     # Set up headers for GitHub API requests
@@ -36,12 +39,13 @@ class Dataset:
     
     # Get repository information
     repo_url = f"https://api.github.com/repos/{owner}/{repo}"
-    repo_response = requests.get(repo_url, headers=headers)
+    print(repo)
+    # repo_response = requests.get(repo_url, headers=headers)
     
-    if repo_response.status_code != 200:
-        raise Exception(f"Failed to get repository info: {repo_response.text}")
+    # if repo_response.status_code != 200:
+    #     raise Exception(f"Failed to get repository info: {repo_response.text}")
     
-    repo_data = repo_response.json()
+    # repo_data = repo_response.json()
     
     # Get issue information if provided
     issue_data = None
@@ -52,10 +56,14 @@ class Dataset:
         if issue_response.status_code == 200:
             issue_data = issue_response.json()
     
+    # Create local deployment
     deployment = LocalDeployment()
     await deployment.start()
     runtime = deployment.runtime
-    session = await runtime.create_session(CreateBashSessionRequest())
+    # Create bash session
+    await runtime.create_session(CreateBashSessionRequest())
+    
+    # Clone the repository
     clone_url = f"https://{self.github_token}@github.com/{owner}/{repo}.git"
     clone_command = f"git clone {clone_url} {temp_dir}"
     
@@ -67,16 +75,62 @@ class Dataset:
     
     await deployment.stop()
     return {
-      "repo_info": repo_data,
-      "issue_info": issue_data,
-      "repo_path": temp_dir
+        # "repo_info": repo_data,
+        "issue_info": issue_data,
+        "repo_path": f"Repository Path : {temp_dir}"
     }
+    
+  async def issue(self, owner, repo, issue_number):
+    """
+    Fetch details of a specific GitHub issue
+
+    Args:
+        owner (str): GitHub repository owner/organization
+        repo (str): Repository name
+        issue_number (int or str): Issue number to fetch
+
+    Returns:
+        dict: Issue data as a JSON object
+    """
+
+    deployment = LocalDeployment()
+    await deployment.start()
+    runtime = deployment.runtime
+
+    # Create bash session
+    await runtime.create_session(CreateBashSessionRequest())
+
+    # Construct the curl command
+    issue_url = f"https://api.github.com/repos/{owner}/{repo}/issues/{issue_number}"
+    # issue_url = "https://api.github.com/repos/octocat/Hello-World/issues/1"
+    curl_command = (
+        f'curl -L '
+        f'-H "Accept: application/vnd.github+json" '
+        f'-H "Authorization: Bearer {self.github_token}" '
+        f'-H "X-GitHub-Api-Version: 2022-11-28" '
+        f'{issue_url}'
+    )
+
+    result = await runtime.run_in_session(BashAction(command=curl_command))
+
+    await deployment.stop()
+
+    if result.exit_code != 0:
+        raise Exception(f"Failed to fetch issue: {result.stderr}")
+
+    output= result.model_dump_json()
+    modify = json.loads(output)
+    return modify["output"]
+
+    
 
 async def main():
     # Example usage
     dataset = Dataset()
-    result = await dataset.pull("Basil070104", "test_bed")
-    print(f"Repository cloned to: {result['repo_path']}")
+    # result = await dataset.pull("Basil070104", "test_bed")
+    # print(f"Repository cloned to: {result['repo_path']}")
+    result = await dataset.issue("Basil070104", "test_bed", "1")
+    print(result["output"])
 
 if __name__ == "__main__":
     asyncio.run(main())

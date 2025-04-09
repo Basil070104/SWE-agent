@@ -13,7 +13,6 @@ from swerex.runtime.abstract import CreateBashSessionRequest, BashAction, Comman
 import json
 import sys
 import logging
-from type import Agent
 import logging.config
 from pathlib import Path
 from window import Window

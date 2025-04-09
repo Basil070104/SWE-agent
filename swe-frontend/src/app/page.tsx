@@ -2,13 +2,16 @@
 import Image from "next/image";
 // import ReactMarkdown from 'react-markdown';
 import { motion } from "motion/react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { AxiosResponse } from 'axios';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { prism } from "react-syntax-highlighter/dist/esm/styles/prism";
 // import { Axios } from "axios";
 
 export default function Home() {
 
   const axios = require('axios').default;
+  const API_BASE_URL = 'http://127.0.0.1:5000'
 
   const markdown = `1:# coding=utf-8
 2:# Copyright 2023 The HuggingFace Inc. team.
@@ -55,36 +58,72 @@ export default function Home() {
 
   const [git, setGit] = useState("")
   const [query, setQuery] = useState("")
+  const [workspace, setWorkspace] = useState("")
+  const [director, setDirectory] = useState("")
+  const [terminal, setTerminal] = useState("")
+  const [description, setDescription] = useState("")
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);;
+
+  useEffect(() => {
+    // Poll for terminal updates every 1 second
+    pollingIntervalRef.current = setInterval(fetchTerminalUpdates, 1000);
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, []);
+
+  const fetchTerminalUpdates = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/terminal_updates`);
+      console.log(response.data)
+      if (response.data && response.data.length > 0) {
+        setTerminal(response.data.command);
+        setDescription(response.data.description);
+      }
+    } catch (error) {
+      console.error('Error fetching terminal updates:', error);
+    }
+  };
+
+  const appendToWorkspace = (newContent: any) => {
+    setWorkspace((prevWorkspace) => prevWorkspace + newContent + "<hr />"); // Append new content
+  };
 
   const handleSubmit = (query: string) => {
     console.log("Submitted query:", query);
     setGit(query);
 
-    axios.post('http://127.0.0.1:5000/git_issue', { url: query }) // Send POST request
+    axios.post('http://127.0.0.1:5000/git_clone', { url: query }) // Send POST request
       .then((response: AxiosResponse) => {
-        console.log("Response from server:", response.data); // Handle success
+        console.log("Response from server:", response.data);
+        const data = response.data
+        console.log(data.data);
+        appendToWorkspace(`${data.data.repo_path} \n${response.status}\n`)
       })
       .catch((error: any) => {
         console.error("Error sending query:", error); // Handle error
       });
+
+    // axios.post('http://127.0.0.1:5000/git_issue', { url: query }) // Send POST request
+    //   .then((response: AxiosResponse) => {
+    //     console.log("Response from server:", response.data);
+    //     const data = response.data
+    //     console.log(data.data);
+    //     // appendToWorkspace(`${data.data.repo_path} \n${response.status}\n`)
+    //   })
+    //   .catch((error: any) => {
+    //     console.error("Error sending query:", error); // Handle error
+    //   });
+
+
   }
 
-  useEffect(() => {
-    axios.get('http://127.0.0.1:5000/data')
-      .then(function (response: AxiosResponse) {
-        const data = response.data;
-        setData({
-          name: data.Name || "",
-          age: data.Age || 0,
-          date: data.Date,
-          programming: data.Programming || "",
-        });
-      })
-      .catch(function (error: any) {
-        console.log(error);
-      });
-  }, []);
-
+  const reset = () => {
+    console.log("Resetting...")
+  }
   return (
     <div className="flex items-center justify-center h-screen max-h-screen w-screen overflow-x-hidden">
       <main className="w-4/5 h-9/10">
@@ -148,7 +187,11 @@ export default function Home() {
               </div>
             </div>
             <div className="w-full h-full pt-2">
-              <div className="bg-white w-full h-full rounded-md text-black p-4 font-exo text-wrap whitespace-pre-line">
+              <div className="bg-white w-full h-full rounded-md  p-4 font-exo text-wrap whitespace-pre-line" >
+                <pre dangerouslySetInnerHTML={{ __html: workspace }} className="text-wrap text-black [&>hr]:mt-2">
+
+                </pre>
+                {/* {workspace} */}
               </div>
             </div>
           </div>
@@ -165,10 +208,19 @@ export default function Home() {
                 Editor
               </div>
             </div>
-            <div className="w-full h-full pt-2">
-              <div className="bg-white w-full h-full rounded-l-md p-4 text-black font-exo overflow-y-auto whitespace-pre-line">
+            <div className="w-full h-full rounded-md overflow-y-auto mt-2" style={{ maxHeight: '400px', paddingBottom: '20px', backgroundColor: '#f5f5f5' }}>
+              <SyntaxHighlighter
+                language="python"
+                style={prism}
+                customStyle={{
+                  marginBottom: 10,
+                  borderRadius: '5px', // Add rounded corners
+                  padding: '10px', // Add padding inside the highlighter
+                  backgroundColor: 'transparent' // Ensure background is transparent or set to desired color
+                }}
+              >
                 {markdown}
-              </div>
+              </SyntaxHighlighter>
             </div>
           </div>
           {/* Terminal */}
@@ -186,13 +238,17 @@ export default function Home() {
             </div>
             <div className="w-full h-full pt-2">
               <div className="bg-white w-full h-full rounded-l-md font-exo text-black p-4">
-                <div>
-                  $
+                <div className="flex flex-row">
+                  <div>
+                    $
+                  </div>
+                  <pre className="mx-2 text-wrap">
+                    {terminal}
+                  </pre>
                 </div>
-
                 <div className="bg-gray-300 grow h-0.5 mt-1 rounded-md"></div>
                 <div>
-                  {git}
+                  {description}
                 </div>
               </div>
             </div>
@@ -211,7 +267,7 @@ export default function Home() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            Next Step
+            Pull Request
           </motion.div>
         </div>
         <div className="bg-gray-300 grow h-0.5 mt-4 rounded-md"></div>
