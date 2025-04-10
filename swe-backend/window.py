@@ -152,7 +152,7 @@ class Window:
     
   def replace_in_window(self, search: str, replace: str, *, reset_first_line : str = "top"):
     window_text = self.get_window_text()
-    
+    print(window_text)
     index = window_text.find(search)
     
     if index == -1:

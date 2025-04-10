@@ -68,22 +68,6 @@ class TerminalExplanationGUI:
         )
         self.explanation_text.grid(row=1, column=1, rowspan=3, sticky="nsew", padx=(10, 0))
         
-        # Create a bottom frame for the buttons
-        # button_frame = ttk.Frame(main_frame)
-        # button_frame.grid(row=4, column=0, columnspan=2, sticky="e", pady=(10, 0))
-        
-        # # Create buttons
-        # clear_button = ttk.Button(button_frame, text="Clear All", command=self.clear_all)
-        # clear_button.pack(side=tk.RIGHT, padx=(5, 0))
-        
-        # copy_code_button = ttk.Button(button_frame, text="Copy Code", command=self.copy_code)
-        # copy_code_button.pack(side=tk.RIGHT, padx=(5, 0))
-        
-        # run_button = ttk.Button(button_frame, text="Run Code", command=self.run_code)
-        # run_button.pack(side=tk.RIGHT, padx=(5, 0))
-        
-        # # Add some sample content
-        # self.insert_sample_content()
     
 root = tk.Tk()
 app = TerminalExplanationGUI(root)

@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from "react"
 import { AxiosResponse } from 'axios';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { prism } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { json } from "stream/consumers";
 // import { Axios } from "axios";
 
 export default function Home() {
@@ -13,41 +14,7 @@ export default function Home() {
   const axios = require('axios').default;
   const API_BASE_URL = 'http://127.0.0.1:5000'
 
-  const markdown = `1:# coding=utf-8
-2:# Copyright 2023 The HuggingFace Inc. team.
-3:#
-4:# Licensed under the Apache License, Version 2.0 (the "License");
-5:# you may not use this file except in compliance with the License.
-6:# You may obtain a copy of the License at
-7:#
-8:#     http://www.apache.org/licenses/LICENSE-2.0
-9:#
-10:# Unless required by applicable law or agreed to in writing, software
-11:# distributed under the License is distributed on an "AS IS" BASIS,
-12:# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-13:# See the License for the specific language governing permissions and
-14:# limitations under the License.
-15:
-16:import argparse
-17:import copy
-18:import logging
-19:import math
-20:import os
-21:import shutil
-22:from contextlib import nullcontext
-23:from pathlib import Path
-24:
-25:import torch
-26:import torch.nn.functional as F
-27:from accelerate import Accelerator
-28:from accelerate.logging import get_logger
-29:from accelerate.utils import ProjectConfiguration, set_seed
-30:from datasets import load_dataset
-31:from peft import LoraConfig
-32:from peft.utils import get_peft_model_state_dict
-33:from PIL import Image
-34:from PIL.ImageOps import exif_transpose
-35:from torch.utils.data import DataLoader, Dataset, default_collate`;
+  const [markdown, setMarkdown] = useState("")
 
   const [data, setData] = useState({
     name: "",
@@ -59,10 +26,17 @@ export default function Home() {
   const [git, setGit] = useState("")
   const [query, setQuery] = useState("")
   const [workspace, setWorkspace] = useState("")
-  const [director, setDirectory] = useState("")
   const [terminal, setTerminal] = useState("")
   const [description, setDescription] = useState("")
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);;
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [dir, setDir] = useState("");
+
+  // Issue Variables
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("")
+  const [issue, setIssue] = useState({})
+
+  const [repo, setRepo] = useState("");
 
   useEffect(() => {
     // Poll for terminal updates every 1 second
@@ -78,10 +52,14 @@ export default function Home() {
   const fetchTerminalUpdates = async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/terminal_updates`);
-      console.log(response.data)
-      if (response.data && response.data.length > 0) {
-        setTerminal(response.data.command);
-        setDescription(response.data.description);
+      const { command, description } = response.data || {};
+
+      if (command && description) {
+        console.log("Fetched terminal update:", command, description);
+        setTerminal(command);
+        setDescription(description);
+      } else {
+        console.warn("No terminal update found in response:", response.data);
       }
     } catch (error) {
       console.error('Error fetching terminal updates:', error);
@@ -92,31 +70,64 @@ export default function Home() {
     setWorkspace((prevWorkspace) => prevWorkspace + newContent + "<hr />"); // Append new content
   };
 
-  const handleSubmit = (query: string) => {
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  const handleSubmit = async (query: string) => {
     console.log("Submitted query:", query);
     setGit(query);
+    let founddir = ""
+    let issueTitle = ""
+    let issueBody = ""
 
     axios.post('http://127.0.0.1:5000/git_clone', { url: query }) // Send POST request
       .then((response: AxiosResponse) => {
         console.log("Response from server:", response.data);
         const data = response.data
         console.log(data.data);
+        setRepo(data.data.repo_path);
+        const pathParts = data.data.repo_path.split('/');
+        const index = pathParts.indexOf("swe-backend")
+        founddir = pathParts[index + 1]
+        setDir(founddir)
+        console.log(founddir)
         appendToWorkspace(`${data.data.repo_path} \n${response.status}\n`)
       })
       .catch((error: any) => {
         console.error("Error sending query:", error); // Handle error
       });
 
-    // axios.post('http://127.0.0.1:5000/git_issue', { url: query }) // Send POST request
-    //   .then((response: AxiosResponse) => {
-    //     console.log("Response from server:", response.data);
-    //     const data = response.data
-    //     console.log(data.data);
-    //     // appendToWorkspace(`${data.data.repo_path} \n${response.status}\n`)
-    //   })
-    //   .catch((error: any) => {
-    //     console.error("Error sending query:", error); // Handle error
-    //   });
+    await sleep(2000)
+    axios.post('http://127.0.0.1:5000/git_issue', { url: query }) // Send POST request
+      .then((response: AxiosResponse) => {
+        console.log("Response from server:", response.data);
+        const data = response.data.data;
+        console.log(typeof data)
+        // setIssue(data)
+        const issue_dict = JSON.parse(data)
+        console.log("Actual data:", issue_dict)
+        issueBody = issue_dict["body"]
+        issueTitle = issue_dict["title"]
+
+        setTitle(issue_dict["title"]);
+        setBody(issue_dict["body"]);
+
+        appendToWorkspace(`${issue_dict["title"]} \n${issue_dict["body"]}\n`);
+        appendToWorkspace(`Agent is Starting Up...\n...designed to assist with software engineering tasks by reading, analyzing, and modifying code across repositories. It uses large language models (GPT-4o) to identify issues, generate fixes, and create pull requests, streamlining development workflows. \n`);
+      })
+      .catch((error: any) => {
+        console.error("Error sending query:", error); // Handle error
+      });
+    await sleep(2000);
+
+    console.log(issueBody, issueBody, founddir)
+    axios.post('http://127.0.0.1:5000/modify_file', { title_issue: issueTitle, body_issue: issueBody, dir_find: founddir })
+      .then((response: AxiosResponse) => {
+        console.log("Response from server:", response.data);
+        console.log("Modified File")
+      })
+      .catch((error: any) => {
+        console.error("Error sending query:", error);
+      });
 
 
   }
@@ -187,7 +198,7 @@ export default function Home() {
               </div>
             </div>
             <div className="w-full h-full pt-2">
-              <div className="bg-white w-full h-full rounded-md  p-4 font-exo text-wrap whitespace-pre-line" >
+              <div className="bg-white w-full h-full rounded-md  p-4 font-exo text-wrap whitespace-pre-line overflow-y-auto" >
                 <pre dangerouslySetInnerHTML={{ __html: workspace }} className="text-wrap text-black [&>hr]:mt-2">
 
                 </pre>
@@ -208,7 +219,12 @@ export default function Home() {
                 Editor
               </div>
             </div>
-            <div className="w-full h-full rounded-md overflow-y-auto mt-2" style={{ maxHeight: '400px', paddingBottom: '20px', backgroundColor: '#f5f5f5' }}>
+            <div className="relative w-full h-full rounded-md overflow-y-auto mt-2" style={{ maxHeight: '400px', paddingBottom: '20px', backgroundColor: '#f5f5f5' }}>
+              <div className="bg-gray-300 py-1 sticky top-0 flex flex-row justify-center items-center text-black">
+                <div>
+                  vowels.py
+                </div>
+              </div>
               <SyntaxHighlighter
                 language="python"
                 style={prism}
@@ -218,6 +234,7 @@ export default function Home() {
                   padding: '10px', // Add padding inside the highlighter
                   backgroundColor: 'transparent' // Ensure background is transparent or set to desired color
                 }}
+                showLineNumbers={true}
               >
                 {markdown}
               </SyntaxHighlighter>
@@ -263,12 +280,13 @@ export default function Home() {
             Reset
           </motion.div>
 
-          <motion.div className="bg-amber-500 text-white py-2 px-6 rounded-md cursor-pointer"
+          <motion.button className="bg-amber-500 text-white py-2 px-6 rounded-md cursor-pointer disabled:hidden"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
+            disabled
           >
             Pull Request
-          </motion.div>
+          </motion.button>
         </div>
         <div className="bg-gray-300 grow h-0.5 mt-4 rounded-md"></div>
         <a href="https://github.com/Basil070104" target="_blank" className="flex w-full justify-center items-center m-4 font-exo">

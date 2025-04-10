@@ -31,6 +31,10 @@ class Agent:
                         filemode='w')
     logging.config.fileConfig('temp.conf')
     self.logger = logging.getLogger("agent")
+    # self.deployment = LocalDeployment()
+    # asyncio.run(self.deployment.start())
+    # self.runtime = self.deployment.runtime
+    
     
   async def open(self, runtime, filename, line_number=None):
       
@@ -45,7 +49,7 @@ class Agent:
     if line_number is not None:
       await self.goto(runtime, line_number)
       
-    return result
+    return result.output
   
   #actions the agent can do
   
@@ -64,45 +68,24 @@ class Agent:
     self.logger.info(f"Scrolled up {lines}")
     return
   
-  async def find_file(self, runtime, file_name):
-
+  async def find_file(self, runtime, dir, file_name):
     self.logger.debug("Finding File...")
-    
-    find = await runtime.run_in_session(BashAction(
-      command=f"find . -name {file_name}"
-    ))
-    
-    find_arr = find.output.split("/")
-    
-    dir_list = ""
-    if len(find_arr) == 2:
-      file = find_arr[1]
-      self.logger.debug("Found")
-      return True
-    else:
-      cd_command = f"cd {dir}"
-      cd_response = await runtime.run_in_session(BashAction(
-        command=cd_command
-      ))
-      self.logger.debug(f"Changed directory: {cd_response.output}")
-      
-      
-    files = await runtime.run_in_session(BashAction(
-      command="ls"
-    ))
-    
-    # print(type(files.output))
-    
-    result = files.output
-    result = result.split()
-    print(result)
-    
-    if file_name in result:
-      self.logger.debug("Found")
-      return True
-    
-    self.logger.error("Not Found")
-    return False
+
+    # Use the provided directory in the find command
+    find_command = f"find {dir} -name {file_name}"
+    find = await runtime.run_in_session(BashAction(command=find_command))
+
+    # Check if the find command returned any results
+    if find.output:
+        find_arr = find.output.splitlines()  # Split by lines to get each found file
+
+        # Log and return if the file is found
+        for file in find_arr:
+            self.logger.debug(f"Found file: {file}")
+            return await self.open(runtime=runtime, filename=file), file
+
+    self.logger.error("File not found in the specified directory.")
+    return False, None
       
     
   
@@ -133,22 +116,56 @@ class Agent:
     
     pass
 
+  async def modify(self, runtime, title: str, body: str, dir: str):
+    result = await runtime.run_in_session(BashAction(
+      command=f"ls -R {dir}/"
+    ))
+    
+    content = {"title" : title, "body" : body, "dir_info" : result.output}
+    json_content = json.dumps(content)
+    
+    # print(json_content)
+    
+    self.logger.info("Figuring out which file to modify...")
+    
+    message_log = [
+      {
+          "role": "system",
+          "content": """ You are trying to figure out from this github issue which file we need to modify
+          in this directory. Only return the file name.
+          """
+      },
+      {"role": "user", "content": json_content}
+    ]
+    
+    completion = self.agent.chat.completions.create(
+        model="gpt-4o-mini",
+        messages = message_log
+    )
+    
+    gpt_out = completion.choices[0].message.content
+    
+    # print(gpt_out)
+    self.logger.info(f"File to be modified is: {gpt_out}")
+    
+    return gpt_out
   
-  async def think(self, runtime, file):
+  async def think(self, runtime, dir, file, window_out: list):
     
-    output = await self.find_file(runtime, file)
+    output, path = await self.find_file(runtime, dir, file)
     result = ""
-    
-    window = Window(path=file, first_line=1) if output else None
+    window = Window(path=path, first_line=1) if output else None
     if window is None:
       self.logger.error("File did not open") 
     else:
       self.logger.info("File opened successfully")
+      
     
     # window.print_window()
     text = window.get_window_text(line_numbers=True)
+    out = window.get_window_text(line_numbers=False)
+    window_out.append(out)
     # print(result.output)
-    
     self.logger.info("Thinking...")
     
     message_log = [
@@ -175,15 +192,15 @@ class Agent:
       },
       {"role": "user", "content": text}
     ]
-
+    print("before")
     completion = self.agent.chat.completions.create(
         model="gpt-4o-mini",
         messages = message_log
     )
-    
+    print("here")
     gpt_out = completion.choices[0].message.content
     
-    # print("ChatGPT: " + gpt_out)
+    print("ChatGPT: " + gpt_out)
     
     try:
       data = json.loads(str(gpt_out))
@@ -206,6 +223,9 @@ class Agent:
     
     window.replace_in_window(search=search, replace=replacement, reset_first_line="keep")
     
+    out = window.get_window_text()
+    window_out.append(out)
+    
     # await self.edit(runtime, file, n, m, replacement)
   
 def main(file):
@@ -218,7 +238,10 @@ def main(file):
   runtime = deployment.runtime
   asyncio.run(runtime.create_session(CreateBashSessionRequest()))
   # asyncio.run(agent.edit(runtime=runtime, file="test.py", n=2, m=2, replacement_text="vowels = \"aeiouAEIOU\""))
-  asyncio.run(agent.think(runtime=runtime, file=file))
+  # asyncio.run(agent.think(runtime=runtime, dir="tmp3exlaa_r", file=file))
+  asyncio.run(agent.modify(runtime=runtime, title="vowel file", body="the vowels file is not working correctly", dir="tmp3exlaa_r"))
+  # asyncio.run(agent.find_file(runtime=runtime, dir="tmp3exlaa_r", file_name=file))
+  # print(result)
   asyncio.run(deployment.stop())
 
 if __name__ == "__main__":

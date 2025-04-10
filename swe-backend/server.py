@@ -7,6 +7,9 @@ from dataset import Dataset
 from agent import Agent
 import asyncio
 import queue
+from swerex.deployment.local import LocalDeployment
+from swerex.runtime.abstract import CreateBashSessionRequest
+import logging
 
 
 x = datetime.datetime.now()
@@ -16,6 +19,8 @@ app = Flask("SWE-agent")
 CORS(app)
 
 terminal_updates_queue = []
+window_queue = []
+logger = logging.getLogger("SWE-agent")
 
 @app.route('/')
 def root():
@@ -98,6 +103,41 @@ def git_issue():
     
     return {"status": status, "data": result}, 200 
 
+@app.route("/modify_file", methods=["POST"])
+def modify_file():
+    data = request.get_json() 
+    title = data.get('title_issue') 
+    body = data.get('body_issue')
+    dir = data.get('dir_find')
+    # print(title, body, dir)
+    
+    deployment = LocalDeployment(logger=logger)
+    asyncio.run(deployment.start())
+    runtime = deployment.runtime
+    asyncio.run(runtime.create_session(CreateBashSessionRequest()))
+    print("Available sessions:", deployment.runtime.sessions.keys())
+    model = Agent(alpha=0.5)
+    print("Modifying file")
+    terminal_updates_queue.append({
+        'command': f"ls -R {dir}/", 'description': "Finding all relevant file paths in the project"
+    })
+    file = asyncio.run(model.modify(runtime=runtime, title=title, body=body, dir=dir))
+    # if file is None:
+    #     status = "No File found to modify"
+    #     return jsonify(
+    #     {
+    #         "status": "Fail",
+    #         "message" : "No file found to modify"
+    #     })
+    print("Agent is thinking...")
+    terminal_updates_queue.append({
+        'command': f"agent.thinking >>>", 'description': "The agent is finding the solution to the bug"
+    })
+    
+    asyncio.run(model.think(runtime=runtime, dir=dir, file=file, window_out=window_queue))
+    return {"status": "success", "message": "File modified successfully"} 
+    
+
 @app.route("/terminal_command", methods=["POST"])
 def terminal_command_endpoint():
     data = request.get_json()
@@ -117,12 +157,26 @@ def terminal_command_endpoint():
 def get_terminal_updates():
     # This endpoint will be polled by the frontend to get the latest updates
     if terminal_updates_queue:  
-        updates = terminal_updates_queue.pop() 
+        updates = terminal_updates_queue.pop(0) 
     else:
         updates = None 
 
     print(updates) 
     return jsonify(updates)  # Return the updates as JSON
+
+@app.route("/editor_updates")
+def get_editor_updates():
+    # This endpoint will be polled by the frontend to get the latest updates
+    if window_queue:  
+        updates = window_queue.pop(0) 
+    else:
+        updates = None 
+
+    print(updates) 
+    return jsonify(updates)  # Return the updates as JSON
+
+
+
     
 # Running app
 if __name__ == '__main__':
