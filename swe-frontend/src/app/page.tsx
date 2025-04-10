@@ -25,11 +25,12 @@ export default function Home() {
 
   const [git, setGit] = useState("")
   const [query, setQuery] = useState("")
-  const [workspace, setWorkspace] = useState("")
+  const [workspace, setWorkspace] = useState("Welcome to the workspace.\n")
   const [terminal, setTerminal] = useState("")
   const [description, setDescription] = useState("")
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [dir, setDir] = useState("");
+  const [file, setFile] = useState("");
 
   // Issue Variables
   const [title, setTitle] = useState("");
@@ -39,8 +40,9 @@ export default function Home() {
   const [repo, setRepo] = useState("");
 
   useEffect(() => {
-    // Poll for terminal updates every 1 second
+    // Poll for terminal and editor updates every 1 second
     pollingIntervalRef.current = setInterval(fetchTerminalUpdates, 1000);
+    pollingIntervalRef.current = setInterval(fetchEditorUpdates, 1000);
 
     return () => {
       if (pollingIntervalRef.current) {
@@ -63,6 +65,23 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Error fetching terminal updates:', error);
+    }
+  };
+
+  const fetchEditorUpdates = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/editor_updates`);
+      const { text, file } = response.data || {};
+      console.log(response.data)
+      if (text && file) {
+        console.log("Fetched editor update:", text);
+        setMarkdown(text);
+        setFile(file);
+      } else {
+        console.warn("No editor update found in response:", response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching editor updates:', error);
     }
   };
 
@@ -119,21 +138,27 @@ export default function Home() {
       });
     await sleep(2000);
 
-    console.log(issueBody, issueBody, founddir)
     axios.post('http://127.0.0.1:5000/modify_file', { title_issue: issueTitle, body_issue: issueBody, dir_find: founddir })
       .then((response: AxiosResponse) => {
         console.log("Response from server:", response.data);
         console.log("Modified File")
+        const { status, message } = response.data || {};
+        if (status && message) {
+          appendToWorkspace(`A fix has been found.\n${message}\n`);
+        }
       })
       .catch((error: any) => {
         console.error("Error sending query:", error);
       });
-
-
   }
 
   const reset = () => {
     console.log("Resetting...")
+    setWorkspace("Welcome to the workspace.\n");
+    setFile("")
+    setMarkdown("")
+    setTerminal("")
+    setDescription("")
   }
   return (
     <div className="flex items-center justify-center h-screen max-h-screen w-screen overflow-x-hidden">
@@ -220,10 +245,10 @@ export default function Home() {
               </div>
             </div>
             <div className="relative w-full h-full rounded-md overflow-y-auto mt-2" style={{ maxHeight: '400px', paddingBottom: '20px', backgroundColor: '#f5f5f5' }}>
-              <div className="bg-gray-300 py-1 sticky top-0 flex flex-row justify-center items-center text-black">
-                <div>
-                  vowels.py
-                </div>
+              <div className="bg-gray-700 py-1 h-6 sticky top-0 flex flex-row justify-center items-center text-white shadow-md">
+                <pre>
+                  {file}
+                </pre>
               </div>
               <SyntaxHighlighter
                 language="python"
@@ -273,12 +298,13 @@ export default function Home() {
         </div>
         <div className="flex flex-row w-full justify-around items-center font-exo">
 
-          <motion.div className="bg-amber-500 text-white py-2 px-4 rounded-md cursor-pointer"
+          <motion.button className="bg-amber-500 text-white py-2 px-4 rounded-md cursor-pointer"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
+            onClick={reset}
           >
             Reset
-          </motion.div>
+          </motion.button>
 
           <motion.button className="bg-amber-500 text-white py-2 px-6 rounded-md cursor-pointer disabled:hidden"
             whileHover={{ scale: 1.05 }}

@@ -164,7 +164,7 @@ class Agent:
     # window.print_window()
     text = window.get_window_text(line_numbers=True)
     out = window.get_window_text(line_numbers=False)
-    window_out.append(out)
+    window_out.append({'text': out, 'file' : file})
     # print(result.output)
     self.logger.info("Thinking...")
     
@@ -224,9 +224,10 @@ class Agent:
     window.replace_in_window(search=search, replace=replacement, reset_first_line="keep")
     
     out = window.get_window_text()
-    window_out.append(out)
+    window_out.append({'text': out, 'file': file})
     
     # await self.edit(runtime, file, n, m, replacement)
+    return gpt_out
   
 def main(file):
   deployment = LocalDeployment()

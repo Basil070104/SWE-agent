@@ -20,6 +20,7 @@ CORS(app)
 
 terminal_updates_queue = []
 window_queue = []
+cloned_repo = ""  
 logger = logging.getLogger("SWE-agent")
 
 @app.route('/')
@@ -121,6 +122,7 @@ def modify_file():
     terminal_updates_queue.append({
         'command': f"ls -R {dir}/", 'description': "Finding all relevant file paths in the project"
     })
+    cloned_repo = dir
     file = asyncio.run(model.modify(runtime=runtime, title=title, body=body, dir=dir))
     # if file is None:
     #     status = "No File found to modify"
@@ -134,8 +136,12 @@ def modify_file():
         'command': f"agent.thinking >>>", 'description': "The agent is finding the solution to the bug"
     })
     
-    asyncio.run(model.think(runtime=runtime, dir=dir, file=file, window_out=window_queue))
-    return {"status": "success", "message": "File modified successfully"} 
+    fix = asyncio.run(model.think(runtime=runtime, dir=dir, file=file, window_out=window_queue))
+    terminal_updates_queue.append({
+        'command': f"agent.finished >>>", 'description': "The agent has fixed the bug. Look in the editor for more information."
+    })
+    print("end")
+    return jsonify({"status": "success", "message": {fix}}), 200
     
 
 @app.route("/terminal_command", methods=["POST"])
@@ -161,7 +167,7 @@ def get_terminal_updates():
     else:
         updates = None 
 
-    print(updates) 
+    # print(updates) 
     return jsonify(updates)  # Return the updates as JSON
 
 @app.route("/editor_updates")
@@ -172,12 +178,11 @@ def get_editor_updates():
     else:
         updates = None 
 
-    print(updates) 
+    # print(updates) 
     return jsonify(updates)  # Return the updates as JSON
 
-
-
+# @app.route("/reset"):
     
 # Running app
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False)
