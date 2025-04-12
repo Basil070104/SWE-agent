@@ -31,6 +31,7 @@ export default function Home() {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [dir, setDir] = useState("");
   const [file, setFile] = useState("");
+  const [pull, setPull] = useState(true)
 
   // Issue Variables
   const [title, setTitle] = useState("");
@@ -41,13 +42,13 @@ export default function Home() {
 
   useEffect(() => {
     // Poll for terminal and editor updates every 1 second
-    pollingIntervalRef.current = setInterval(fetchTerminalUpdates, 1000);
-    pollingIntervalRef.current = setInterval(fetchEditorUpdates, 1000);
+    const terminalInterval = setInterval(fetchTerminalUpdates, 1000);
+    const editorInterval = setInterval(fetchEditorUpdates, 1000);
 
     return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
+      // Clear both intervals on component unmount
+      clearInterval(terminalInterval);
+      clearInterval(editorInterval);
     };
   }, []);
 
@@ -60,6 +61,7 @@ export default function Home() {
         console.log("Fetched terminal update:", command, description);
         setTerminal(command);
         setDescription(description);
+        await sleep(1000)
       } else {
         console.warn("No terminal update found in response:", response.data);
       }
@@ -115,7 +117,7 @@ export default function Home() {
         console.error("Error sending query:", error); // Handle error
       });
 
-    await sleep(2000)
+    await sleep(3000)
     axios.post('http://127.0.0.1:5000/git_issue', { url: query }) // Send POST request
       .then((response: AxiosResponse) => {
         console.log("Response from server:", response.data);
@@ -132,19 +134,22 @@ export default function Home() {
 
         appendToWorkspace(`${issue_dict["title"]} \n${issue_dict["body"]}\n`);
         appendToWorkspace(`Agent is Starting Up...\n...designed to assist with software engineering tasks by reading, analyzing, and modifying code across repositories. It uses large language models (GPT-4o) to identify issues, generate fixes, and create pull requests, streamlining development workflows. \n`);
+
       })
       .catch((error: any) => {
         console.error("Error sending query:", error); // Handle error
       });
-    await sleep(2000);
+    await sleep(3000);
 
-    axios.post('http://127.0.0.1:5000/modify_file', { title_issue: issueTitle, body_issue: issueBody, dir_find: founddir })
+    await axios.post('http://127.0.0.1:5000/modify_file', { title_issue: issueTitle, body_issue: issueBody, dir_find: founddir })
       .then((response: AxiosResponse) => {
         console.log("Response from server:", response.data);
         console.log("Modified File")
         const { status, message } = response.data || {};
         if (status && message) {
           appendToWorkspace(`A fix has been found.\n${message}\n`);
+          appendToWorkspace(`A Pull Request has been generated for you.\n`);
+          setPull(false)
         }
       })
       .catch((error: any) => {
@@ -159,6 +164,7 @@ export default function Home() {
     setMarkdown("")
     setTerminal("")
     setDescription("")
+    setPull(true)
   }
   return (
     <div className="flex items-center justify-center h-screen max-h-screen w-screen overflow-x-hidden">
@@ -224,7 +230,7 @@ export default function Home() {
             </div>
             <div className="w-full h-full pt-2">
               <div className="bg-white w-full h-full rounded-md  p-4 font-exo text-wrap whitespace-pre-line overflow-y-auto" >
-                <pre dangerouslySetInnerHTML={{ __html: workspace }} className="text-wrap text-black [&>hr]:mt-2">
+                <pre dangerouslySetInnerHTML={{ __html: workspace }} className="text-wrap text-black [&>hr]:my-4">
 
                 </pre>
                 {/* {workspace} */}
@@ -245,7 +251,7 @@ export default function Home() {
               </div>
             </div>
             <div className="relative w-full h-full rounded-md overflow-y-auto mt-2" style={{ maxHeight: '400px', paddingBottom: '20px', backgroundColor: '#f5f5f5' }}>
-              <div className="bg-gray-700 py-1 h-6 sticky top-0 flex flex-row justify-center items-center text-white shadow-md">
+              <div className="bg-gray-700 py-1 h-6 sticky top-0 flex flex-row justify-center items-center text-white">
                 <pre>
                   {file}
                 </pre>
@@ -289,9 +295,9 @@ export default function Home() {
                   </pre>
                 </div>
                 <div className="bg-gray-300 grow h-0.5 mt-1 rounded-md"></div>
-                <div>
+                <pre className="text-wrap overflow-auto text-sm">
                   {description}
-                </div>
+                </pre>
               </div>
             </div>
           </div>
@@ -306,10 +312,26 @@ export default function Home() {
             Reset
           </motion.button>
 
-          <motion.button className="bg-amber-500 text-white py-2 px-6 rounded-md cursor-pointer disabled:hidden"
+          <motion.button
+            className={`bg-amber-500 text-white py-2 px-6 rounded-md cursor-pointer disabled:hidden 
+              transition duration-300 ease-in-out 
+              ${pull ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-lg hover:shadow-amber-400'}`}
+            animate={{
+              boxShadow: [
+                "0 0 0 rgba(255, 193, 7, 0)", // No glow
+                "0 0 10px rgba(255, 193, 7, 0.9)", // Glow effect
+                "0 0 0 rgba(255, 193, 7, 0)" // Back to no glow
+              ]
+            }}
+            transition={{
+              duration: 1.5, // Duration for one complete loop
+              repeat: Infinity, // Loop indefinitely
+              repeatType: "loop", // Loop type
+              ease: "easeInOut"
+            }}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            disabled
+            disabled={pull}
           >
             Pull Request
           </motion.button>

@@ -105,7 +105,7 @@ def git_issue():
     return {"status": status, "data": result}, 200 
 
 @app.route("/modify_file", methods=["POST"])
-def modify_file():
+async def modify_file():
     data = request.get_json() 
     title = data.get('title_issue') 
     body = data.get('body_issue')
@@ -113,17 +113,16 @@ def modify_file():
     # print(title, body, dir)
     
     deployment = LocalDeployment(logger=logger)
-    asyncio.run(deployment.start())
+    await deployment.start()
     runtime = deployment.runtime
-    asyncio.run(runtime.create_session(CreateBashSessionRequest()))
-    print("Available sessions:", deployment.runtime.sessions.keys())
+    await runtime.create_session(CreateBashSessionRequest())
     model = Agent(alpha=0.5)
     print("Modifying file")
     terminal_updates_queue.append({
         'command': f"ls -R {dir}/", 'description': "Finding all relevant file paths in the project"
     })
     cloned_repo = dir
-    file = asyncio.run(model.modify(runtime=runtime, title=title, body=body, dir=dir))
+    file = await model.modify(runtime=runtime, title=title, body=body, dir=dir)
     # if file is None:
     #     status = "No File found to modify"
     #     return jsonify(
@@ -136,12 +135,15 @@ def modify_file():
         'command': f"agent.thinking >>>", 'description': "The agent is finding the solution to the bug"
     })
     
-    fix = asyncio.run(model.think(runtime=runtime, dir=dir, file=file, window_out=window_queue))
+    fix = await model.think(runtime=runtime, dir=dir, file=file, window_out=window_queue)
     terminal_updates_queue.append({
-        'command': f"agent.finished >>>", 'description': "The agent has fixed the bug. Look in the editor for more information."
+        'command': f"agent.finished >>>", 'description': """The agent has fixed the bug. Look in the editor for more information. \nYou agree to:Use the Agent only for lawful purposes;\nEnsure you have the right to clone and modify any repository you provide;\nNot use the Agent to introduce or propagate malicious code;\nMonitor any modifications made by the Agent before deploying them in production environments.
+        """
     })
     print("end")
-    return jsonify({"status": "success", "message": {fix}}), 200
+    await deployment.stop()
+    print("end2")
+    return {"status": "success", "message": fix}
     
 
 @app.route("/terminal_command", methods=["POST"])

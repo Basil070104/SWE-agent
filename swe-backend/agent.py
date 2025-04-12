@@ -50,8 +50,7 @@ class Agent:
       await self.goto(runtime, line_number)
       
     return result.output
-  
-  #actions the agent can do
+
   
   async def goto(self, window: Window, line_number):
     window.goto(line=line_number)

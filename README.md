@@ -18,36 +18,38 @@ SWE Agent is a software engineering assistant designed to streamline development
    ```bash
    git clone https://github.com/Basil070104/SWE-Agent.git
    ```
-2. Navigate to the project directory:
+2. Navigate to the frontend of the project directory:
    ```bash
-   cd swe-agent
+   cd swe-frontend
    ```
 3. Install dependencies:
    ```bash
-   pip install -r requirements.txt
+   npm install
    ```
+4. Run the frontend:
+   ```bash
+   npm run dev
+   ```
+5. Navigate to the backend server in another terminal:
+   '''bash
+   cd ./swe-backend
+   '''
+6. Install the dependencies:
+   '''bash
+   pip install -r requirements.txt
+   '''
+7. Run the backend:
+   '''bash
+   python3 server.py
+   '''
+
 
 ## Usage
 
 To run the SWE Agent, execute:
 
-```bash
-python swe_agent.py
-```
+In the frontend provide the url of the issue.
 
-For detailed options, use:
-
-```bash
-python swe_agent.py --help
-```
-
-## Configuration
-
-Modify the `config.yaml` file to customize settings according to your needs. Some key parameters include:
-
-- `language_support`: Specify supported programming languages.
-- `review_strictness`: Define the level of code review strictness.
-- `automation_level`: Set the degree of task automation.
 
 ## Contributing
 
@@ -65,5 +67,5 @@ This project is licensed under the MIT License - see the `LICENSE` file for deta
 
 ## Contact
 
-For questions or suggestions, feel free to reach out to [Your Name] at [your email] or open an issue on GitHub.
+For questions or suggestions, feel free to reach out to Basil Khwaja at khwajabasil@gmail.com or open an issue on GitHub.
 
