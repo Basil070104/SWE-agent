@@ -69,7 +69,6 @@ def git_clone():
     # Fetch issue data from GitHub
     result = asyncio.run(directory.pull(owner=owner, repo=repo, issue_number=issue_number)) 
 
-    # print(result)
     status = "Good"
     return {"status": status, "data": result}, 200 
 
@@ -123,13 +122,6 @@ async def modify_file():
     })
     cloned_repo = dir
     file = await model.modify(runtime=runtime, title=title, body=body, dir=dir)
-    # if file is None:
-    #     status = "No File found to modify"
-    #     return jsonify(
-    #     {
-    #         "status": "Fail",
-    #         "message" : "No file found to modify"
-    #     })
     print("Agent is thinking...")
     terminal_updates_queue.append({
         'command': f"agent.thinking >>>", 'description': "The agent is finding the solution to the bug"
@@ -168,8 +160,6 @@ def get_terminal_updates():
         updates = terminal_updates_queue.pop(0) 
     else:
         updates = None 
-
-    # print(updates) 
     return jsonify(updates)  # Return the updates as JSON
 
 @app.route("/editor_updates")
@@ -179,11 +169,7 @@ def get_editor_updates():
         updates = window_queue.pop(0) 
     else:
         updates = None 
-
-    # print(updates) 
     return jsonify(updates)  # Return the updates as JSON
-
-# @app.route("/reset"):
     
 # Running app
 if __name__ == '__main__':
